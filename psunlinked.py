@@ -36,34 +36,53 @@ def parse_mapline(line):
         path = path[:-10]
         deleted = True
 
+    flags = m.group(3)
+
     return Data(
         start   = int(m.group(1), 16),
         end     = int(m.group(2), 16),
-        flags   = m.group(3),
+
+        readable   = flags[0] == 'r',
+        writable   = flags[1] == 'w',
+        executable = flags[2] == 'x',
+        mayshare   = flags[3] == 's',
+
         pgoff   = int(m.group(4), 16),
         major   = int(m.group(5), 16),
         minor   = int(m.group(6), 16),
         inode   = int(m.group(7), 10),
         path    = path,
-        delted  = deleted,
+        deleted = deleted,
         )
+
+def read_maps(pid):
+    try:
+        with open('/proc/{pid}/maps'.format(pid=pid), 'r') as f:
+            for line in f:
+                m = parse_mapline(line)
+                if not m: continue
+                yield m
+    except IOError:
+        raise psutil.AccessDenied()
 
 
 def handle_proc(proc):
-    print proc.name()
+    printed_name = False
 
-    with open('/proc/{pid}/maps'.format(pid=proc.pid), 'r') as f:
-        for line in f:
-            m = parse_mapline(line)
-            if not m: continue
+    for m in read_maps(proc.pid):
+        if m.executable and m.deleted:
 
-            print m
+            if not printed_name:
+                printed_name = True
+                print '[{0}] {1}'.format(proc.pid, proc.name())
+
+            print '    ' + m.path
 
 
 
 def main():
-    #for proc in psutil.process_iter():
-    for proc in [psutil.Process(11872)]:
+    print 'Processes executing deleted files:'
+    for proc in psutil.process_iter():
         try:
             handle_proc(proc)
         except psutil.AccessDenied:

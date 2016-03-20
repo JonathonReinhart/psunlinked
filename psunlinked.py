@@ -4,18 +4,6 @@ import re
 from pprint import pprint
 import argparse
 
-# fs/proc/task_mmu.c    show_map_vma()
-#	seq_printf(m, "%08lx-%08lx %c%c%c%c %08llx %02x:%02x %lu ",
-#			start,
-#			end,
-#			flags & VM_READ ? 'r' : '-',
-#			flags & VM_WRITE ? 'w' : '-',
-#			flags & VM_EXEC ? 'x' : '-',
-#			flags & VM_MAYSHARE ? 's' : 'p',
-#			pgoff,
-#			MAJOR(dev), MINOR(dev), ino);
-# 7fbe721a4000-7fbe7235b000 r-xp 00000000 fd:01 1185241                    /usr/lib64/libc-2.21.so (deleted)
-map_ex = re.compile(r'([0-9A-Fa-f]+)-([0-9A-Fa-f]+) ([a-z-]{4}) ([0-9A-Fa-f]+) (\w{2}):(\w{2}) (\d+) +(.*)')
 
 class Data(object):
     def __init__(self, **kw):
@@ -27,31 +15,45 @@ class Data(object):
 
 
 def parse_mapline(line):
-    m = map_ex.match(line)
-    if not m:
-        return None
+    # 7fbe721a4000-7fbe7235b000 r-xp 00000000 fd:01 1185241                    /usr/lib64/libc-2.21.so (deleted)
+    # fs/proc/task_mmu.c    show_map_vma()
+    #	seq_printf(m, "%08lx-%08lx %c%c%c%c %08llx %02x:%02x %lu ",
+    #			start,
+    #			end,
+    #			flags & VM_READ ? 'r' : '-',
+    #			flags & VM_WRITE ? 'w' : '-',
+    #			flags & VM_EXEC ? 'x' : '-',
+    #			flags & VM_MAYSHARE ? 's' : 'p',
+    #			pgoff,
+    #			MAJOR(dev), MINOR(dev), ino);
+    parts = line.split(None, 5)
 
-    path = m.group(8)
+    addr = parts[0].split('-')
+    flags = parts[1]
+    dev = parts[3].split(':')
+
+    try:
+        path = parts[5].rstrip()
+    except IndexError:
+        path = ''
     deleted = False
     if path.endswith(' (deleted)'):
         path = path[:-10]
         deleted = True
 
-    flags = m.group(3)
-
     return Data(
-        start   = int(m.group(1), 16),
-        end     = int(m.group(2), 16),
+        start   = int(addr[0], 16),
+        end     = int(addr[1], 16),
 
         readable   = flags[0] == 'r',
         writable   = flags[1] == 'w',
         executable = flags[2] == 'x',
         mayshare   = flags[3] == 's',
 
-        pgoff   = int(m.group(4), 16),
-        major   = int(m.group(5), 16),
-        minor   = int(m.group(6), 16),
-        inode   = int(m.group(7), 10),
+        pgoff   = int(parts[2], 16),
+        major   = int(dev[0], 16),
+        minor   = int(dev[1], 16),
+        inode   = int(parts[4], 10),
         path    = path,
         deleted = deleted,
         )
@@ -60,9 +62,7 @@ def read_maps(pid):
     try:
         with open('/proc/{pid}/maps'.format(pid=pid), 'r') as f:
             for line in f:
-                m = parse_mapline(line)
-                if not m: continue
-                yield m
+                yield parse_mapline(line)
     except IOError:
         raise psutil.AccessDenied()
 

@@ -81,7 +81,7 @@ def handle_proc(proc, show_files=False):
                 print '    ' + m.path
 
 def parse_args():
-    ap = argparse.ArgumentParser()
+    ap = argparse.ArgumentParser(description='Find processes executing deleted files')
     ap.add_argument('--show-files', '-f', action='store_true',
             help='Show deleted file paths')
     return ap.parse_args()

@@ -2,6 +2,7 @@
 import psutil
 import re
 from pprint import pprint
+import argparse
 
 # fs/proc/task_mmu.c    show_map_vma()
 #	seq_printf(m, "%08lx-%08lx %c%c%c%c %08llx %02x:%02x %lu ",
@@ -66,7 +67,7 @@ def read_maps(pid):
         raise psutil.AccessDenied()
 
 
-def handle_proc(proc):
+def handle_proc(proc, show_files=False):
     printed_name = False
 
     for m in read_maps(proc.pid):
@@ -76,15 +77,23 @@ def handle_proc(proc):
                 printed_name = True
                 print '[{0}] {1}'.format(proc.pid, proc.name())
 
-            print '    ' + m.path
+            if show_files:
+                print '    ' + m.path
 
+def parse_args():
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--show-files', '-f', action='store_true',
+            help='Show deleted file paths')
+    return ap.parse_args()
 
 
 def main():
+    args = parse_args()
+
     print 'Processes executing deleted files:'
     for proc in psutil.process_iter():
         try:
-            handle_proc(proc)
+            handle_proc(proc, show_files=args.show_files)
         except psutil.AccessDenied:
             continue
 

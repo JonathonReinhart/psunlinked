@@ -1,4 +1,5 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
+from __future__ import print_function
 import psutil
 import re
 from pprint import pprint
@@ -75,10 +76,10 @@ def handle_proc(proc, show_files=False):
 
             if not printed_name:
                 printed_name = True
-                print '[{0}] {1}'.format(proc.pid, proc.name())
+                print('[{0}] {1}'.format(proc.pid, proc.name()))
 
             if show_files:
-                print '    ' + m.path
+                print('    ' + m.path)
 
 def parse_args():
     ap = argparse.ArgumentParser(description='Find processes executing deleted files')
@@ -90,7 +91,7 @@ def parse_args():
 def main():
     args = parse_args()
 
-    print 'Processes executing deleted files:'
+    print('Processes executing deleted files:')
     for proc in psutil.process_iter():
         try:
             handle_proc(proc, show_files=args.show_files)
